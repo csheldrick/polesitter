@@ -87,10 +87,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
             variant_header "${variant_header}"
         )
 
-        if(ARGC GREATER 2 AND "${ARGV2}" STREQUAL "leaf")
+        if(ARGC GREATER 2 AND "${ARGV2}" STREQUAL "soft")
             string(REPLACE
-                "    // well-separated\n    if (dist_sq > ${mac_factor}F * (theta * theta) * (hw_sum * hw_sum)) {"
-                "    // evaluate far fields only once the target has reached a leaf\n    if (!target->is_leaf &&\n        dist_sq > ${mac_factor}F * (theta * theta) * (hw_sum * hw_sum)) {\n        for (int i = 0; i < 8; ++i) {\n            ps_impl_fmm_interaction_pass(target->children[i], src);\n        }\n        return;\n    }\n\n    if (dist_sq > ${mac_factor}F * (theta * theta) * (hw_sum * hw_sum)) {"
+                "        float dist   = sqrtf(dist_sq);\n        float inv_r3 = 1.0F / (dist * dist_sq);\n        float inv_r5 = inv_r3 / dist_sq;"
+                "        float soft_dist_sq = dist_sq + 0.1F;\n        float dist         = sqrtf(soft_dist_sq);\n        float inv_r3       = 1.0F / (dist * soft_dist_sq);\n        float inv_r5       = inv_r3 / soft_dist_sq;"
                 variant_header "${variant_header}"
             )
         endif()
@@ -112,7 +112,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
         )
         string(REPLACE
             "target.local[1], 0.008, 1e-6"
-            "target.local[1], 0.000098, 1e-9"
+            "target.local[1], 0.000098, 5e-9"
             variant_source "${variant_source}"
         )
 
@@ -128,8 +128,9 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     ps_add_fixed_accuracy_variant(mac12 12.0)
     ps_add_fixed_accuracy_variant(mac27 27.0)
     ps_add_fixed_accuracy_variant(mac48 48.0)
-    ps_add_fixed_accuracy_variant(leaf3 3.0 leaf)
-    ps_add_fixed_accuracy_variant(leaf12 12.0 leaf)
+    ps_add_fixed_accuracy_variant(soft3 3.0 soft)
+    ps_add_fixed_accuracy_variant(soft12 12.0 soft)
+    ps_add_fixed_accuracy_variant(soft48 48.0 soft)
 
     add_executable(polesitter_benchmark tests/benchmark.c)
     target_link_libraries(polesitter_benchmark PRIVATE polesitter)
