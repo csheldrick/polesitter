@@ -6,6 +6,40 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+option(POLESITTER_VALIDATE_FIXES "Apply isolated correctness fixes for validation" ON)
+
+if(POLESITTER_VALIDATE_FIXES)
+    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/polesitter.h" POLESITTER_HEADER)
+
+    string(REPLACE
+        "float force_dip_x = (dx * dipole_coeff) - (mx * inv_r3);"
+        "float force_dip_x = (mx * inv_r3) - (dx * dipole_coeff);"
+        POLESITTER_HEADER "${POLESITTER_HEADER}"
+    )
+    string(REPLACE
+        "float force_dip_y = (dy * dipole_coeff) - (my * inv_r3);"
+        "float force_dip_y = (my * inv_r3) - (dy * dipole_coeff);"
+        POLESITTER_HEADER "${POLESITTER_HEADER}"
+    )
+    string(REPLACE
+        "float force_dip_z = (dz * dipole_coeff) - (mz * inv_r3);"
+        "float force_dip_z = (mz * inv_r3) - (dz * dipole_coeff);"
+        POLESITTER_HEADER "${POLESITTER_HEADER}"
+    )
+    string(REPLACE
+        "float32x4_t eps_vec = vdupq_n_f32(2.0F);"
+        "float32x4_t eps_vec = vdupq_n_f32(0.1F);"
+        POLESITTER_HEADER "${POLESITTER_HEADER}"
+    )
+    string(REPLACE
+        "if (dist_sq > (theta * theta) * (hw_sum * hw_sum)) {"
+        "if (dist_sq > 3.0F * (theta * theta) * (hw_sum * hw_sum)) {"
+        POLESITTER_HEADER "${POLESITTER_HEADER}"
+    )
+
+    file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/src/polesitter.h" "${POLESITTER_HEADER}")
+endif()
+
 add_library(polesitter INTERFACE)
 
 target_include_directories(polesitter INTERFACE
