@@ -81,7 +81,7 @@ static void run_dipole_sign_test(void) {
     target.z = 0.0F;
     target.half_width = 1.0F;
 
-    source.x = 10.0F;
+    source.x = 100.0F;
     source.y = 0.0F;
     source.z = 0.0F;
     source.half_width = 1.0F;
@@ -93,11 +93,11 @@ static void run_dipole_sign_test(void) {
     ps_impl_fmm_interaction_pass(&target, &source);
 
     /*
-     * First-order expansion of (R + delta) / |R + delta|^3 for R=10,
-     * delta=+1 is 1/R^2 - 2/R^3 = 0.008. A reversed dipole sign gives
-     * 0.012 instead.
+     * First-order softened expansion for R=100 and delta=+1 is
+     * approximately 9.799856e-05. The large separation keeps this
+     * analytic check independent of the production MAC threshold.
      */
-    check_close("M2L dipole orientation", target.local[1], 0.008, 1e-6);
+    check_close("M2L dipole orientation", target.local[1], 0.00009799856, 5e-9);
 }
 
 static void fill_uniform(float* x, float* y, float* z, float* mass,
