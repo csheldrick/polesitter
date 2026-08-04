@@ -156,13 +156,14 @@ void test_radix_sort(void) {
     ps_init(&ctx, &cfg);
 
     uint32_t morton_codes[4] = {999, 10, 500, 42};
+    uint32_t ids[4]          = {0, 1, 2, 3};
     float    x[4]            = {9.0F, 1.0F, 5.0F, 4.0F};
     float    y[4]            = {9.0F, 1.0F, 5.0F, 4.0F};
     float    z[4]            = {9.0F, 1.0F, 5.0F, 4.0F};
     float    mass[4]         = {9.0F, 1.0F, 5.0F, 4.0F};
-    float    fx[2] = {0.0F, 0.0F}, fy[2] = {0.0F, 0.0F}, fz[2] = {0.0F, 0.0F};
+    float    fx[4] = {0.0F}, fy[4] = {0.0F}, fz[4] = {0.0F};
 
-    ps_particle_arrs_t arrs = {x, y, z, mass, fx, fy, fz, 0, 4};
+    ps_particle_arrs_t arrs = {x, y, z, mass, fx, fy, fz, ids, 4};
 
     ps_impl_sort_particles(&ctx->arena, morton_codes, &arrs);
 
