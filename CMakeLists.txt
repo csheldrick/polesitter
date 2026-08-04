@@ -6,40 +6,6 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-option(POLESITTER_VALIDATE_FIXES "Apply isolated correctness fixes for validation" ON)
-
-if(POLESITTER_VALIDATE_FIXES)
-    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/polesitter.h" POLESITTER_HEADER)
-
-    string(REPLACE
-        "float force_dip_x = (dx * dipole_coeff) - (mx * inv_r3);"
-        "float force_dip_x = (mx * inv_r3) - (dx * dipole_coeff);"
-        POLESITTER_HEADER "${POLESITTER_HEADER}"
-    )
-    string(REPLACE
-        "float force_dip_y = (dy * dipole_coeff) - (my * inv_r3);"
-        "float force_dip_y = (my * inv_r3) - (dy * dipole_coeff);"
-        POLESITTER_HEADER "${POLESITTER_HEADER}"
-    )
-    string(REPLACE
-        "float force_dip_z = (dz * dipole_coeff) - (mz * inv_r3);"
-        "float force_dip_z = (mz * inv_r3) - (dz * dipole_coeff);"
-        POLESITTER_HEADER "${POLESITTER_HEADER}"
-    )
-    string(REPLACE
-        "float32x4_t eps_vec = vdupq_n_f32(2.0F);"
-        "float32x4_t eps_vec = vdupq_n_f32(0.1F);"
-        POLESITTER_HEADER "${POLESITTER_HEADER}"
-    )
-    string(REPLACE
-        "if (dist_sq > (theta * theta) * (hw_sum * hw_sum)) {"
-        "if (dist_sq > 3.0F * (theta * theta) * (hw_sum * hw_sum)) {"
-        POLESITTER_HEADER "${POLESITTER_HEADER}"
-    )
-
-    file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/src/polesitter.h" "${POLESITTER_HEADER}")
-endif()
-
 add_library(polesitter INTERFACE)
 
 target_include_directories(polesitter INTERFACE
@@ -69,24 +35,80 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
     add_test(NAME core_tests COMMAND polesitter_tests)
 
-    add_executable(polesitter_accuracy_tests tests/accuracy.c)
-    target_link_libraries(polesitter_accuracy_tests PRIVATE polesitter)
+    function(ps_configure_accuracy_target target source_file)
+        add_executable(${target} ${source_file})
+        target_link_libraries(${target} PRIVATE polesitter)
+        target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
-    if(NOT MSVC)
-        target_link_libraries(polesitter_accuracy_tests PRIVATE m)
-    endif()
+        if(NOT MSVC)
+            target_link_libraries(${target} PRIVATE m)
+        endif()
 
-    if(MSVC)
-        target_compile_options(polesitter_accuracy_tests PRIVATE
-            /W4 /WX /O2
+        if(MSVC)
+            target_compile_options(${target} PRIVATE
+                /W4 /WX /O2
+            )
+        else()
+            target_compile_options(${target} PRIVATE
+                -Wall -Wextra -pedantic -O3 -ffast-math -march=native
+            )
+        endif()
+    endfunction()
+
+    ps_configure_accuracy_target(polesitter_accuracy_baseline tests/accuracy.c)
+    add_test(NAME accuracy_baseline COMMAND polesitter_accuracy_baseline)
+
+    function(ps_add_fixed_accuracy_variant variant mac_factor)
+        file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/polesitter.h" variant_header)
+
+        string(REPLACE
+            "float force_dip_x = (dx * dipole_coeff) - (mx * inv_r3);"
+            "float force_dip_x = (mx * inv_r3) - (dx * dipole_coeff);"
+            variant_header "${variant_header}"
         )
-    else()
-        target_compile_options(polesitter_accuracy_tests PRIVATE
-            -Wall -Wextra -pedantic -O3 -ffast-math -march=native
+        string(REPLACE
+            "float force_dip_y = (dy * dipole_coeff) - (my * inv_r3);"
+            "float force_dip_y = (my * inv_r3) - (dy * dipole_coeff);"
+            variant_header "${variant_header}"
         )
-    endif()
+        string(REPLACE
+            "float force_dip_z = (dz * dipole_coeff) - (mz * inv_r3);"
+            "float force_dip_z = (mz * inv_r3) - (dz * dipole_coeff);"
+            variant_header "${variant_header}"
+        )
+        string(REPLACE
+            "float32x4_t eps_vec = vdupq_n_f32(2.0F);"
+            "float32x4_t eps_vec = vdupq_n_f32(0.1F);"
+            variant_header "${variant_header}"
+        )
+        string(REPLACE
+            "if (dist_sq > (theta * theta) * (hw_sum * hw_sum)) {"
+            "if (dist_sq > ${mac_factor}F * (theta * theta) * (hw_sum * hw_sum)) {"
+            variant_header "${variant_header}"
+        )
 
-    add_test(NAME accuracy_tests COMMAND polesitter_accuracy_tests)
+        set(variant_header_name "polesitter_${variant}.h")
+        file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${variant_header_name}"
+             "${variant_header}")
+
+        file(READ "${CMAKE_CURRENT_SOURCE_DIR}/tests/accuracy.c" variant_source)
+        string(REPLACE
+            "#include \"../src/polesitter.h\""
+            "#include \"${variant_header_name}\""
+            variant_source "${variant_source}"
+        )
+        set(variant_source_path "${CMAKE_CURRENT_BINARY_DIR}/accuracy_${variant}.c")
+        file(WRITE "${variant_source_path}" "${variant_source}")
+
+        set(target "polesitter_accuracy_${variant}")
+        ps_configure_accuracy_target(${target} "${variant_source_path}")
+        add_test(NAME accuracy_${variant} COMMAND ${target})
+    endfunction()
+
+    ps_add_fixed_accuracy_variant(mac3 3.0)
+    ps_add_fixed_accuracy_variant(mac12 12.0)
+    ps_add_fixed_accuracy_variant(mac27 27.0)
+    ps_add_fixed_accuracy_variant(mac48 48.0)
 
     add_executable(polesitter_benchmark tests/benchmark.c)
     target_link_libraries(polesitter_benchmark PRIVATE polesitter)
