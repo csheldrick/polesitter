@@ -1,3 +1,4 @@
+// clang-format off
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -275,3 +276,4 @@ int main(void) {
     (void)printf("\nAll accuracy validations passed.\n");
     return EXIT_SUCCESS;
 }
+// clang-format on
