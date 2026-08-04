@@ -87,6 +87,14 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
             variant_header "${variant_header}"
         )
 
+        if(ARGC GREATER 2 AND "${ARGV2}" STREQUAL "leaf")
+            string(REPLACE
+                "    // well-separated\n    if (dist_sq > ${mac_factor}F * (theta * theta) * (hw_sum * hw_sum)) {"
+                "    // evaluate far fields only once the target has reached a leaf\n    if (!target->is_leaf &&\n        dist_sq > ${mac_factor}F * (theta * theta) * (hw_sum * hw_sum)) {\n        for (int i = 0; i < 8; ++i) {\n            ps_impl_fmm_interaction_pass(target->children[i], src);\n        }\n        return;\n    }\n\n    if (dist_sq > ${mac_factor}F * (theta * theta) * (hw_sum * hw_sum)) {"
+                variant_header "${variant_header}"
+            )
+        endif()
+
         set(variant_header_name "polesitter_${variant}.h")
         file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${variant_header_name}"
              "${variant_header}")
@@ -97,6 +105,17 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
             "#include \"${variant_header_name}\""
             variant_source "${variant_source}"
         )
+        string(REPLACE
+            "source.x = 10.0F;"
+            "source.x = 100.0F;"
+            variant_source "${variant_source}"
+        )
+        string(REPLACE
+            "target.local[1], 0.008, 1e-6"
+            "target.local[1], 0.000098, 1e-9"
+            variant_source "${variant_source}"
+        )
+
         set(variant_source_path "${CMAKE_CURRENT_BINARY_DIR}/accuracy_${variant}.c")
         file(WRITE "${variant_source_path}" "${variant_source}")
 
@@ -109,6 +128,8 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     ps_add_fixed_accuracy_variant(mac12 12.0)
     ps_add_fixed_accuracy_variant(mac27 27.0)
     ps_add_fixed_accuracy_variant(mac48 48.0)
+    ps_add_fixed_accuracy_variant(leaf3 3.0 leaf)
+    ps_add_fixed_accuracy_variant(leaf12 12.0 leaf)
 
     add_executable(polesitter_benchmark tests/benchmark.c)
     target_link_libraries(polesitter_benchmark PRIVATE polesitter)
